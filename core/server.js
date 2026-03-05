@@ -5,10 +5,10 @@
  */
 
 import express from 'express';
-import { WebSocketServer, WebSocket } from 'ws';
 import { createServer } from 'http';
+import { WebSocketServer, WebSocket } from 'ws';
 import { fileURLToPath } from 'url';
-import { dirname } from 'path';
+import { dirname, join } from 'path';
 import { createAgent } from './agent.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -94,6 +94,20 @@ class WebServer {
       });
     });
 
+    // WebSocket 说明（避免直接访问 ws:// 端口出现 Upgrade Required 的困惑）
+    this.app.get('/ws-info', (req, res) => {
+      res.type('text/html').send(`
+        <!DOCTYPE html>
+        <html><head><meta charset="utf-8"><title>WebSocket 说明</title></head>
+        <body style="font-family:sans-serif;padding:2rem;max-width:600px;">
+          <h1>WebSocket 连接说明</h1>
+          <p><code>ws://localhost:${this.wsPort}</code> 是 WebSocket 服务端口，<strong>不能</strong>在浏览器地址栏里当网页打开。</p>
+          <p>用浏览器直接访问会看到 "Upgrade Required"，这是正常现象。</p>
+          <p>请使用 <a href="/">聊天页面</a>（<a href="/">http://localhost:${this.port}</a>），页面会自动通过 WebSocket 连接后端。</p>
+        </body></html>
+      `);
+    });
+
     // 获取会话历史
     this.app.get('/api/history/:sessionId?', (req, res) => {
       try {
@@ -168,6 +182,13 @@ class WebServer {
       } catch (error) {
         res.status(500).json({ error: error.message });
       }
+    });
+
+    // WebChat UI 静态文件（根路径 / 返回聊天界面）
+    const uiPath = join(__dirname, '..', 'ui', 'webchat');
+    this.app.use(express.static(uiPath));
+    this.app.get('/', (req, res) => {
+      res.sendFile(join(uiPath, 'index.html'));
     });
 
     // 404
